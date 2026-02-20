@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  slow-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Simulate slow Docker build
+        run: |
+          echo "Building... (simulated)"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
+          sleep 60
+          echo "Build complete"
+
+      - name: Run tests
+        run: |
+          echo "Running tests..."
+          python3 -c "print('all tests passed')"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Lint
+        run: echo "Linting... done"
+
+  all-green:
+    if: always()
+    needs: [slow-build, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.slow-build.result }}" != "success" || "${{ needs.lint.result }}" != "success" ]]; then
+            echo "Some jobs failed"
+            exit 1
+          fi
+          echo "All green"
